@@ -12,7 +12,7 @@ This tool was successfully tested on :
 
 It may work on other versions including Windows Server
 
-usage : SystemCopy.exe srcFile dstFile
-      srcFile content will be copied into dstFile.
+## usage
+```SystemCopy.exe srcFile dstFile # srcFile content will be copied into dstFile.```
 
-/!\ WARNING : The tool leaves the dstFile world writable /!\
+**WARNING : The tool leaves the dstFile world writable!**
